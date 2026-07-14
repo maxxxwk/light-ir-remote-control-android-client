@@ -10,5 +10,5 @@ enum class RemoteControlCommand(val endpoint: String) {
     DIMMER("dimmer"),
 
     WARMER("warmer"),
-    COLDER("night");
+    COLDER("colder");
 }

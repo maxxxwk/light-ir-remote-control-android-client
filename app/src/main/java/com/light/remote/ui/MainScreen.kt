@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,15 +30,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.light.remote.R
 import com.light.remote.utils.compose.bounceClick
-import de.palm.composestateevents.EventEffect
 
 @Suppress("LongMethod")
 @Composable
-fun MainScreen(viewModel: MainScreenViewModel = hiltViewModel()) {
+fun MainScreen(viewModel: MainScreenViewModel) {
     val context = LocalContext.current
     val resources = LocalResources.current
 
@@ -56,29 +56,29 @@ fun MainScreen(viewModel: MainScreenViewModel = hiltViewModel()) {
                     modifier = Modifier.size(64.dp),
                     painter = painterResource(R.drawable.ic_no_wifi),
                     contentDescription = "no_wifi_connection",
-                    tint = Color.Black
+                    tint = Color.White
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = stringResource(R.string.no_wifi_screen_label),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black,
+                    color = Color.White,
                     textAlign = TextAlign.Center
                 )
             }
         }
 
         is MainScreenState.WiFiConnectionAvailable -> {
-            EventEffect(
-                event = currentState.errorToastEvent,
-                onConsumed = viewModel::errorToastEventConsumed
-            ) {
-                Toast.makeText(
-                    context,
-                    resources.getString(R.string.error_toast_text),
-                    Toast.LENGTH_SHORT
-                ).show()
+            LaunchedEffect(currentState.errorToastEvent) {
+                if (currentState.errorToastEvent) {
+                    Toast.makeText(
+                        context,
+                        resources.getString(R.string.error_toast_text),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    viewModel.errorToastEventConsumed()
+                }
             }
 
             Column(
@@ -142,6 +142,17 @@ fun MainScreen(viewModel: MainScreenViewModel = hiltViewModel()) {
                         onClick = viewModel::setNightMode
                     )
                 }
+            }
+        }
+
+        MainScreenState.ScanNetwork -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(color = 0xFF2C2C2C)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
             }
         }
     }

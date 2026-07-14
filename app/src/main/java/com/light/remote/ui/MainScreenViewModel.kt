@@ -5,11 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.light.remote.data.RemoteControlRepository
 import com.light.remote.data.WifiStatusRepository
 import com.light.remote.data.models.RemoteControlCommand
-import dagger.hilt.android.lifecycle.HiltViewModel
-import de.palm.composestateevents.StateEvent
-import de.palm.composestateevents.consumed
-import de.palm.composestateevents.triggered
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -17,24 +12,26 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class MainScreenViewModel @Inject constructor(
+class MainScreenViewModel(
     private val remoteControlRepository: RemoteControlRepository,
     wifiStatusRepository: WifiStatusRepository
 ) : ViewModel() {
     val state: StateFlow<MainScreenState>
-        field = MutableStateFlow<MainScreenState>(MainScreenState.WiFiConnectionAvailable())
+        field = MutableStateFlow<MainScreenState>(MainScreenState.ScanNetwork)
 
     init {
-        wifiStatusRepository.connectionStatusFlow.onEach { hasConnection ->
-            state.update {
-                if (hasConnection) {
-                    MainScreenState.WiFiConnectionAvailable()
-                } else {
-                    MainScreenState.NoWiFiConnection
+        viewModelScope.launch {
+            remoteControlRepository.findRemoteControlIp()
+            wifiStatusRepository.connectionStatusFlow.onEach { hasConnection ->
+                state.update {
+                    if (hasConnection) {
+                        MainScreenState.WiFiConnectionAvailable()
+                    } else {
+                        MainScreenState.NoWiFiConnection
+                    }
                 }
-            }
-        }.launchIn(viewModelScope)
+            }.launchIn(this)
+        }
     }
 
     fun power() {
@@ -66,18 +63,18 @@ class MainScreenViewModel @Inject constructor(
     }
 
     fun errorToastEventConsumed() {
-        setErrorToastEventValue(consumed)
+        setErrorToastEventValue(false)
     }
 
     private fun runCommand(command: RemoteControlCommand) {
         viewModelScope.launch {
             remoteControlRepository.executeCommand(command).onFailure {
-                setErrorToastEventValue(triggered)
+                setErrorToastEventValue(true)
             }
         }
     }
 
-    private fun setErrorToastEventValue(value: StateEvent) {
+    private fun setErrorToastEventValue(value: Boolean) {
         state.update { currentState ->
             if (currentState is MainScreenState.WiFiConnectionAvailable) {
                 currentState.copy(errorToastEvent = value)

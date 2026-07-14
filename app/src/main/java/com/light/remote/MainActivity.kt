@@ -4,30 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.lifecycleScope
-import com.light.remote.data.RemoteControlRepository
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.light.remote.di.AppDI
 import com.light.remote.ui.MainScreen
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
-import kotlinx.coroutines.launch
+import com.light.remote.ui.MainScreenViewModel
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject
-    lateinit var remoteControlRepository: RemoteControlRepository
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { MainScreen() }
-        var keepSplashScreenUp = true
-        splashScreen.setKeepOnScreenCondition { keepSplashScreenUp }
-        lifecycleScope.launch {
-            remoteControlRepository.findRemoteControlIp()
-            keepSplashScreenUp = false
+        setContent {
+            MainScreen(
+                viewModel = ViewModelProvider(
+                    owner = this,
+                    factory = viewModelFactory { initializer { AppDI.mainScreenViewModel } }
+                )[MainScreenViewModel::class]
+            )
         }
     }
 }

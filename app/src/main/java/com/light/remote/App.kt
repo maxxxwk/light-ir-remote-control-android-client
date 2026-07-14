@@ -1,7 +1,11 @@
 package com.light.remote
 
 import android.app.Application
-import dagger.hilt.android.HiltAndroidApp
+import com.light.remote.di.AppDI
 
-@HiltAndroidApp
-class App: Application()
+class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        AppDI.appContext = this
+    }
+}

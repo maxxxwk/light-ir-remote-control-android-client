@@ -1,11 +1,8 @@
-import org.gradle.kotlin.dsl.support.kotlinCompilerOptions
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -71,7 +68,7 @@ androidComponents {
             .forEach {
                 it.outputFileName.set(
                     buildString {
-                        append("Light_IR_Remote_Control").append('_')
+                        append("light").append('_')
                         append(variant.buildType).append('_')
                         append(variant.flavorName).append('_')
                         append(it.versionName.get())
@@ -89,30 +86,11 @@ composeCompiler {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-
-    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-
-    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
-
-    implementation(platform(libs.okhttp.bom))
-    implementation(libs.okhttp.core)
-    implementation(libs.okhttp.logging)
-
-    implementation(libs.androidx.splashscreen)
-
-    implementation(libs.androidx.datastore)
-
-    implementation(libs.compose.state.events)
 }

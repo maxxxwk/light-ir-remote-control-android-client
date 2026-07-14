@@ -4,29 +4,22 @@ package com.light.remote.data
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.util.Log
 import com.light.remote.data.local.PreferencesDataSource
 import com.light.remote.data.models.LocalNetworkInfo
 import com.light.remote.data.models.RemoteControlCommand
-import com.light.remote.di.qualifiers.DispatcherIO
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
+import java.net.HttpURLConnection
 import java.net.Inet4Address
+import java.net.URL
 
-class RemoteControlRepository @Inject constructor(
-    @ApplicationContext context: Context,
-    @param:DispatcherIO private val dispatcher: CoroutineDispatcher,
-    private val preferencesDataSource: PreferencesDataSource,
-    private val okHttpClient: OkHttpClient
+class RemoteControlRepository(
+    context: Context,
+    private val dispatcher: CoroutineDispatcher,
+    private val preferencesDataSource: PreferencesDataSource
 ) {
     private val connectivityManager: ConnectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -51,28 +44,39 @@ class RemoteControlRepository @Inject constructor(
                     localNetworkInfo.ipAddress,
                     localNetworkInfo.subnetMask
                 ).map { ip -> async { runCatching { makeRequest(ip, "ping") } } }
-                    .awaitAll().firstOrNull {
-                        val response = it.getOrNull() ?: return@firstOrNull false
-                        response.isSuccessful && response.code == 204
-                    }?.map { it.request.url.host }?.also {
+                    .awaitAll().firstOrNull { it.getOrNull() != null }?.also {
                         it.onSuccess { ip ->
-                            Log.d("wtf", "")
-                            launch { preferencesDataSource.saveRemoteControlIP(ip) }
+                            ip?.let {
+                                launch { preferencesDataSource.saveRemoteControlIP(ip) }
+                            }
                         }
                     }
             }?.getOrNull()
         }
     }
 
-    private suspend fun makeRequest(ip: String, endpint: String): Response = coroutineScope {
-        okHttpClient.newCall(
-            Request.Builder()
-                .url(
-                    URL_PATTERN.replace("{ip}", ip)
-                        .replace("{endpoint}", endpint)
-                ).get()
-                .build()
-        ).execute()
+    private suspend fun makeRequest(
+        ip: String,
+        endpoint: String
+    ): String? = withContext(dispatcher) {
+        val connection = (URL(
+            URL_PATTERN.replace("{ip}", ip)
+                .replace("{endpoint}", endpoint)
+        ).openConnection() as HttpURLConnection)
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 1000
+            connection.readTimeout = 1000
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                error("Request failed! Status code=$responseCode")
+            }
+            ip
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection.disconnect()
+        }
     }
 
     @Suppress("ReturnCount")
