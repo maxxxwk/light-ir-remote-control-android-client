@@ -156,11 +156,11 @@ private fun DefaultButton(
 ) {
     Box(
         modifier = modifier
+            .bounceClick(onClick = onClick)
             .background(
                 color = backgroundColor,
                 shape = RoundedCornerShape(12.dp)
             )
-            .bounceClick(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {

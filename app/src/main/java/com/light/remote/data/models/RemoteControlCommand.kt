@@ -1,14 +1,14 @@
 package com.light.remote.data.models
 
-enum class RemoteControlCommand {
-    POWER,
+enum class RemoteControlCommand(val endpoint: String) {
+    POWER("power"),
 
-    MODE,
-    NIGHT_MODE,
+    MODE("mode"),
+    NIGHT_MODE("night"),
 
-    BRIGHTER,
-    DIMMER,
+    BRIGHTER("brighter"),
+    DIMMER("dimmer"),
 
-    WARMER,
-    COLDER;
+    WARMER("warmer"),
+    COLDER("night");
 }

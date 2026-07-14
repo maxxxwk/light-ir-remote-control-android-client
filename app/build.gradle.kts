@@ -84,9 +84,6 @@ androidComponents {
 }
 
 composeCompiler {
-    stabilityConfigurationFiles.add(
-        rootProject.layout.projectDirectory.file("stability_config.conf")
-    )
     reportsDestination = layout.buildDirectory.dir("compose_compiler")
     metricsDestination = layout.buildDirectory.dir("compose_compiler")
 }
@@ -112,9 +109,6 @@ dependencies {
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
-
-    implementation(platform(libs.retrofit.bom))
-    implementation(libs.retrofit.core)
 
     implementation(libs.androidx.splashscreen)
 

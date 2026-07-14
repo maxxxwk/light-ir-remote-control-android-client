@@ -4,10 +4,10 @@ package com.light.remote.data
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.util.Log
 import com.light.remote.data.local.PreferencesDataSource
 import com.light.remote.data.models.LocalNetworkInfo
 import com.light.remote.data.models.RemoteControlCommand
-import com.light.remote.data.network.RemoteControlService
 import com.light.remote.di.qualifiers.DispatcherIO
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -17,13 +17,16 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.net.Inet4Address
 
 class RemoteControlRepository @Inject constructor(
     @ApplicationContext context: Context,
     @param:DispatcherIO private val dispatcher: CoroutineDispatcher,
     private val preferencesDataSource: PreferencesDataSource,
-    private val remoteControlService: RemoteControlService
+    private val okHttpClient: OkHttpClient
 ) {
     private val connectivityManager: ConnectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -32,40 +35,44 @@ class RemoteControlRepository @Inject constructor(
         withContext(dispatcher) {
             runCatching {
                 val ip = requireNotNull(findRemoteControlIp())
-                when (command) {
-                    RemoteControlCommand.POWER -> remoteControlService.power(ip)
-                    RemoteControlCommand.MODE -> remoteControlService.changeMode(ip)
-                    RemoteControlCommand.NIGHT_MODE -> remoteControlService.setNightMode(ip)
-                    RemoteControlCommand.BRIGHTER -> remoteControlService.makeBrighter(ip)
-                    RemoteControlCommand.DIMMER -> remoteControlService.makeDimmer(ip)
-                    RemoteControlCommand.WARMER -> remoteControlService.makeWarmer(ip)
-                    RemoteControlCommand.COLDER -> remoteControlService.makeColder(ip)
-                }
+                makeRequest(ip, command.endpoint)
+                Unit
             }
         }
 
-    private suspend fun findRemoteControlIp(): String? = coroutineScope {
+    suspend fun findRemoteControlIp(): String? = withContext(dispatcher) {
         runCatching {
             val savedIp = requireNotNull(preferencesDataSource.getRemoteControlIP())
-            remoteControlService.ping(savedIp)
+            makeRequest(savedIp, "ping")
             savedIp
         }.getOrElse {
             getLocalIpAndMask()?.let { localNetworkInfo ->
                 getAvailableIpAddresses(
                     localNetworkInfo.ipAddress,
                     localNetworkInfo.subnetMask
-                ).map { ip ->
-                    async {
-                        runCatching {
-                            remoteControlService.ping(ip)
-                            ip
+                ).map { ip -> async { runCatching { makeRequest(ip, "ping") } } }
+                    .awaitAll().firstOrNull {
+                        val response = it.getOrNull() ?: return@firstOrNull false
+                        response.isSuccessful && response.code == 204
+                    }?.map { it.request.url.host }?.also {
+                        it.onSuccess { ip ->
+                            Log.d("wtf", "")
+                            launch { preferencesDataSource.saveRemoteControlIP(ip) }
                         }
                     }
-                }.awaitAll().firstOrNull { it.isSuccess }?.also {
-                    it.onSuccess { ip -> launch { preferencesDataSource.saveRemoteControlIP(ip) } }
-                }
             }?.getOrNull()
         }
+    }
+
+    private suspend fun makeRequest(ip: String, endpint: String): Response = coroutineScope {
+        okHttpClient.newCall(
+            Request.Builder()
+                .url(
+                    URL_PATTERN.replace("{ip}", ip)
+                        .replace("{endpoint}", endpint)
+                ).get()
+                .build()
+        ).execute()
     }
 
     @Suppress("ReturnCount")
@@ -121,5 +128,9 @@ class RemoteControlRepository @Inject constructor(
 
     private fun uintToIp(ip: UInt): String {
         return "${(ip shr 24) and 255u}.${(ip shr 16) and 255u}.${(ip shr 8) and 255u}.${ip and 255u}"
+    }
+
+    private companion object {
+        const val URL_PATTERN = "http://{ip}/{endpoint}"
     }
 }
