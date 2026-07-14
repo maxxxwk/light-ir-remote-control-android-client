@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Light IR Remote Control</string>
+    <string name="error_toast_text">The command execution failed</string>
+    <string name="no_wifi_screen_label">You must connect to Wi-Fi</string>
+    <string name="power">POWER</string>
+    <string name="brighter">☀️ Світліше</string>
+    <string name="dimmer">🌙 Темніше</string>
+    <string name="warmer">🔥 Тепліше</string>
+    <string name="colder">❄️ Холодніше</string>
+    <string name="mode">🔄 Режим</string>
+    <string name="night_mode">🌃 Ніч</string>
+</resources>
