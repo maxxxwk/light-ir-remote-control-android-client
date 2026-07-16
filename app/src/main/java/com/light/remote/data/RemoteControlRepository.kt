@@ -4,6 +4,7 @@ package com.light.remote.data
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.light.remote.data.local.PreferencesDataSource
 import com.light.remote.data.models.LocalNetworkInfo
 import com.light.remote.data.models.RemoteControlCommand
@@ -24,13 +25,19 @@ class RemoteControlRepository(
     private val connectivityManager: ConnectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
+    @Volatile
+    private var cachedIp: String? = null
+
     suspend fun executeCommand(command: RemoteControlCommand): Result<Unit> =
         withContext(dispatcher) {
             runCatching {
-                val ip = requireNotNull(findRemoteControlIp())
-                makeRequest(ip, command.endpoint)
-                Unit
-            }
+                makeRequest(ip = requireNotNull(cachedIp), endpoint = command.endpoint)
+            }.recoverCatching {
+                makeRequest(
+                    ip = requireNotNull(findRemoteControlIp()),
+                    endpoint = command.endpoint
+                )
+            }.map {}
         }
 
     suspend fun findRemoteControlIp(): String? = withContext(dispatcher) {
@@ -51,7 +58,7 @@ class RemoteControlRepository(
                             }
                         }
                     }
-            }?.getOrNull()
+            }?.getOrNull()?.also { cachedIp = it }
         }
     }
 
@@ -82,7 +89,15 @@ class RemoteControlRepository(
     @Suppress("ReturnCount")
     private fun getLocalIpAndMask(): LocalNetworkInfo? {
         val activeNetwork = connectivityManager.activeNetwork ?: return null
-        val linkProperties = connectivityManager.getLinkProperties(activeNetwork) ?: return null
+        val wifiNetwork = if (
+            connectivityManager.getNetworkCapabilities(activeNetwork)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        ) {
+            activeNetwork
+        } else {
+            return null
+        }
+        val linkProperties = connectivityManager.getLinkProperties(wifiNetwork) ?: return null
 
         for (linkAddress in linkProperties.linkAddresses) {
             val inetAddress = linkAddress.address
